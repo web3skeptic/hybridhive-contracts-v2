@@ -10,12 +10,15 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@nomicfoundation/hardhat-foundry": "^1.0.1",
     "@nomicfoundation/hardhat-toolbox": "^2.0.2",
     "chai": "^4.3.7",
     "hardhat": "^2.14.0",
     "mocha": "^10.2.0"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^4.8.3"
+    "@openzeppelin/contracts": "^4.8.3",
+    "@prb/math": "^4.0.0",
+    "dotenv": "^16.0.3"
   }
 }

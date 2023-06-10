@@ -1,4 +1,6 @@
-pragma solidity ^0.8.9;
+pragma solidity 0.8.19;
+
+import {UD60x18} from "@prb/math/src/UD60x18.sol";
 
 contract IHybridHiveCore {
     enum EntityType {
@@ -23,14 +25,15 @@ contract IHybridHiveCore {
         address operator;
         uint256 parentAggregator;
         EntityType aggregatedEntityType;
+        uint256 totalWeight;
     }
 
     struct GlobalTransfer {
-        uint256 status; // 0 - doesn't exist, 10 - excecuted
-        uint256 value; // GLOBAL SHARE
+        uint256 status; // 0 - doesn't exist @dev for future development
         uint256 tokenFromId;
         uint256 tokenToId;
         address sender;
         address recipient;
+        uint256 amount; // absolute value of tokenFromId value
     }
 }

@@ -3,7 +3,14 @@ const {
   loadFixture,
 } = require("@nomicfoundation/hardhat-network-helpers");
 const { expect } = require("chai");
-const BN = ethers.BigNumber;
+const FN = ethers.FixedNumber;
+const BN = ethers.BigNumber.from;
+const DECIMALS = BN("10").pow("18");
+
+function toPercentageString(value) {
+  return FN.fromValue(value.toString(), 18).round(17).toString();
+}
+
 describe("HybridHiveCore", function () {
   // We define a fixture to reuse the same setup in every test.
   // We use loadFixture to run this setup once, snapshot that state,
@@ -29,7 +36,7 @@ describe("HybridHiveCore", function () {
     const TokenOperator = await TokenOperatorFactory.deploy();
     await TokenOperator.setCoreAddress(HybridHiveCore.address);
 
-    // @todo replace with generator
+    // @todo replace with loop
 
     {
       // create Token[1]
@@ -109,12 +116,11 @@ describe("HybridHiveCore", function () {
         0, // _parentAggregator
         1, // _aggregatedEntityType 1 - token, 2 aggregator
         [1, 2], // _aggregatedEntities
-        [66666666, 33333334] // _aggregatedEntitiesWeights
+        [DECIMALS.mul(2).div(3), DECIMALS.div(3)] // _aggregatedEntitiesWeights
       );
       // connect tokens to the aggregator
       await TokenOperator.updateParentAggregator(1, 1);
       await TokenOperator.updateParentAggregator(2, 1);
-
       // @todo attach token to upper aggregator
 
       // create Ag[2]
@@ -126,7 +132,7 @@ describe("HybridHiveCore", function () {
         0, // _parentAggregator
         1,
         [3], // _aggregatedEntities
-        [100000000] // _aggregatedEntitiesWeights
+        [DECIMALS] // _aggregatedEntitiesWeights
       );
       await TokenOperator.updateParentAggregator(3, 2);
 
@@ -139,7 +145,7 @@ describe("HybridHiveCore", function () {
         0, // _parentAggregator
         1,
         [4, 5], // _aggregatedEntities
-        [50000000, 50000000] // _aggregatedEntitiesWeights
+        [DECIMALS.div(2), DECIMALS.div(2)] // _aggregatedEntitiesWeights
       );
       await TokenOperator.updateParentAggregator(4, 3);
       await TokenOperator.updateParentAggregator(5, 3);
@@ -153,7 +159,7 @@ describe("HybridHiveCore", function () {
         0, // _parentAggregator
         1,
         [6], // _aggregatedEntities
-        [100000000] // _aggregatedEntitiesWeights
+        [DECIMALS] // _aggregatedEntitiesWeights
       );
       await TokenOperator.updateParentAggregator(6, 4);
 
@@ -166,7 +172,7 @@ describe("HybridHiveCore", function () {
         0, // _parentAggregator
         2,
         [1, 2], // _aggregatedEntities
-        [50000000, 50000000] // _aggregatedEntitiesWeights
+        [DECIMALS.div(2), DECIMALS.div(2)] // _aggregatedEntitiesWeights
       );
       await AggregatorOperator.updateParentAggregator(1, 5);
       await AggregatorOperator.updateParentAggregator(2, 5);
@@ -180,7 +186,7 @@ describe("HybridHiveCore", function () {
         0, // _parentAggregator
         2,
         [3, 4], // _aggregatedEntities
-        [75000000, 25000000] // _aggregatedEntitiesWeights
+        [DECIMALS.mul(3).div(4), DECIMALS.div(4)] // _aggregatedEntitiesWeights
       );
       await AggregatorOperator.updateParentAggregator(3, 6);
       await AggregatorOperator.updateParentAggregator(4, 6);
@@ -194,7 +200,7 @@ describe("HybridHiveCore", function () {
         0, // _parentAggregator
         2,
         [5, 6], // _aggregatedEntities
-        [60000000, 40000000] // _aggregatedEntitiesWeights
+        [DECIMALS.mul(3).div(5), DECIMALS.mul(2).div(5)] // _aggregatedEntitiesWeights
       );
       await AggregatorOperator.updateParentAggregator(5, 7);
       await AggregatorOperator.updateParentAggregator(6, 7);
@@ -204,124 +210,234 @@ describe("HybridHiveCore", function () {
     Ag[7]
       Ag[5] 60%
         Ag[1] 30%
-          Token[1] 20%
-            account[0] 15% 1500  owner
-            account[1] 5% 500
+          Token[1] 20% 2000
+            account[owner] 15% 1500  owner
+            account[0] 5% 500
           Token[2] 10%
-            account[2] 7% 1400
-            account[3] 3% 600
+            account[1] 7% 1400
+            account[2] 3% 600
         Ag[2] 30%
           Token[3]30%
-            account[4] 30% 500
+            account[3] 30% 500
       Ag[6]40%
         Ag[3] 30%
           Token[4] 15%
-            account[5] 9% 999
-            account[6] 6% 666
+            account[4] 9% 999
+            account[5] 6% 666
           Token[5] 15%
-            account[7] 10% 300
-            account[8] 5% 200
+            account[6] 9% 300
+            account[7] 6% 200
         Ag[4] 10%
           Token[6] 10%
-            account[9] 10% 300
+            account[8] 10% 300
+
+    */
+    /*
+    Ag[7]
+      Ag[5] 55%
+        Ag[1] 25%
+          Token[1] 15% 5000
+            account[owner] 10% 1000  owner
+            account[0] 5% 500
+          Token[2] 10%
+            account[1] 7% 1400
+            account[2] 3% 600
+        Ag[2] 30%
+          Token[3]30%
+            account[3] 30% 500
+      Ag[6]45%
+        Ag[3] 35%
+          Token[4] 15%
+            account[4] 9% 999
+            account[5] 6% 666
+          Token[5] 20%
+            account[6] 14% 300
+            account[7] 6% 200
+        Ag[4] 10%
+          Token[6] 10%
+            account[8] 10% 300
     */
 
     return { HybridHiveCore, owner, accounts };
   }
 
-  describe("Deployment", function () {
+  describe("HibridHive Getters", function () {
     it("Should get user token balance correctly", async function () {
       const { HybridHiveCore, owner, accounts } = await loadFixture(
         setupInitState
       );
 
-      //console.log(await HybridHiveCore.getTokensInNetwork(6));
-
       expect(await HybridHiveCore.getTokenBalance(1, owner.address)).to.equal(
         1500
       );
     });
-    /*
-    it("Should set the right owner", async function () {
-      const { lock, owner } = await loadFixture(setupInitState);
 
-      expect(await lock.owner()).to.equal(owner.address);
+    it("Should properly calculate global token share", async function () {
+      const { HybridHiveCore, owner, accounts } = await loadFixture(
+        setupInitState
+      );
+      let result = await HybridHiveCore.getGlobalValueShare(7, 1, 1, 1500);
+
+      expect(toPercentageString(result)).to.equal("0.15");
+
+      result = await HybridHiveCore.getGlobalValueShare(
+        7,
+        2,
+        1,
+        DECIMALS.div(10)
+      );
+
+      expect(toPercentageString(result)).to.equal("0.03");
     });
 
-    it("Should receive and store the funds to lock", async function () {
-      const { lock, lockedAmount } = await loadFixture(
-        deployOneYearLockFixture
+    it("Should properly calculate global aggregator share", async function () {
+      const { HybridHiveCore, owner, accounts } = await loadFixture(
+        setupInitState
       );
 
-      expect(await ethers.provider.getBalance(lock.address)).to.equal(
-        lockedAmount
+      expect(
+        toPercentageString(await HybridHiveCore.getGlobalAggregatorShare(6, 3))
+      ).to.equal("0.75");
+
+      expect(
+        toPercentageString(await HybridHiveCore.getGlobalAggregatorShare(7, 1))
+      ).to.equal("0.3");
+
+      expect(
+        toPercentageString(await HybridHiveCore.getGlobalAggregatorShare(7, 6))
+      ).to.equal("0.4");
+
+      expect(
+        toPercentageString(await HybridHiveCore.getGlobalAggregatorShare(7, 4))
+      ).to.equal("0.1");
+    });
+
+    it("Should properly convert global share into spesific tokens amount", async function () {
+      const { HybridHiveCore, owner, accounts } = await loadFixture(
+        setupInitState
       );
-    });*/
+
+      expect(
+        await HybridHiveCore.getAbsoluteAmountFromShare(
+          7,
+          1,
+          1,
+          DECIMALS.div(10)
+        )
+      ).to.equal("1000");
+
+      expect(
+        await HybridHiveCore.getAbsoluteAmountFromShare(
+          7,
+          1,
+          2,
+          DECIMALS.mul(3).div(100)
+        )
+      ).to.equal("600");
+
+      expect(
+        await HybridHiveCore.getAbsoluteAmountFromShare(
+          7,
+          1,
+          3,
+          DECIMALS.mul(3).div(100)
+        )
+      ).to.equal("50");
+    });
+
+    it("Should properly get root aggregator in the network", async function () {
+      const { HybridHiveCore, owner, accounts } = await loadFixture(
+        setupInitState
+      );
+
+      expect(await HybridHiveCore.getRootAggregator(3)).to.equal(7);
+    });
+
+    it("Should properly commit the global transfer", async function () {
+      const { HybridHiveCore, owner, accounts } = await loadFixture(
+        setupInitState
+      );
+      async function logNetworkTree(rootAggregator, space, globalRoot) {
+        const str = new Array(space + 1).join("-");
+
+        if (!globalRoot) globalRoot = rootAggregator;
+        let subEntities = await HybridHiveCore.getAggregatorSubEntities(
+          rootAggregator
+        );
+        const aggregatorParent = await HybridHiveCore.getAggregatorParent(
+          rootAggregator
+        );
+        if (aggregatorParent == 0)
+          console.log(rootAggregator, ` - global share 100%`);
+
+        for (entityId of subEntities[1]) {
+          if (subEntities[0] == 2) {
+            const shareOfEntity = await HybridHiveCore.getGlobalAggregatorShare(
+              globalRoot,
+              entityId
+            );
+            const totalSupply = await HybridHiveCore.getTotalSupply(
+              subEntities[0],
+              entityId
+            );
+            console.log(
+              str,
+              entityId,
+              ` - global share: ${shareOfEntity} (${totalSupply})`
+            );
+
+            await logNetworkTree(entityId, space + 2, globalRoot);
+          } else {
+            const totalSupply = await HybridHiveCore.getTotalSupply(
+              subEntities[0],
+              entityId
+            );
+            const shareOfEntity = await HybridHiveCore.getGlobalValueShare(
+              globalRoot,
+              1,
+              entityId,
+              totalSupply
+            );
+            console.log(
+              "---- ",
+              entityId,
+              ` - global share: ${shareOfEntity}  (${totalSupply})`
+            );
+          }
+        }
+      }
+
+      async function logAccountGlobalBalance(accountAddress, tokenId) {
+        const getUsetBalance = await HybridHiveCore.getTokenBalance(
+          tokenId,
+          accountAddress
+        );
+        const globalTokenShare = await HybridHiveCore.getGlobalValueShare(
+          7,
+          1,
+          tokenId,
+          getUsetBalance
+        );
+        console.log(accountAddress, getUsetBalance, globalTokenShare);
+      }
+
+      await logAccountGlobalBalance(owner.address, 1);
+      await logAccountGlobalBalance(accounts[6].address, 5);
+      //await logNetworkTree(7, 0);
+
+      const tx = await HybridHiveCore.globalTransfer(
+        1,
+        5,
+        owner.address,
+        accounts[6].address,
+        500
+      );
+      tx.wait();
+
+      //await logNetworkTree(7, 0);
+
+      await logAccountGlobalBalance(owner.address, 1);
+      await logAccountGlobalBalance(accounts[6].address, 5);
+    });
   });
-  /*
-  describe("Withdrawals", function () {
-    describe("Validations", function () {
-      it("Should revert with the right error if called too soon", async function () {
-        const { lock } = await loadFixture(deployOneYearLockFixture);
-
-        await expect(lock.withdraw()).to.be.revertedWith(
-          "You can't withdraw yet"
-        );
-      });
-
-      it("Should revert with the right error if called from another account", async function () {
-        const { lock, unlockTime, otherAccount } = await loadFixture(
-          deployOneYearLockFixture
-        );
-
-        // We can increase the time in Hardhat Network
-        await time.increaseTo(unlockTime);
-
-        // We use lock.connect() to send a transaction from another account
-        await expect(lock.connect(otherAccount).withdraw()).to.be.revertedWith(
-          "You aren't the owner"
-        );
-      });
-
-      it("Shouldn't fail if the unlockTime has arrived and the owner calls it", async function () {
-        const { lock, unlockTime } = await loadFixture(
-          deployOneYearLockFixture
-        );
-
-        // Transactions are sent using the first signer by default
-        await time.increaseTo(unlockTime);
-
-        await expect(lock.withdraw()).not.to.be.reverted;
-      });
-    });
-
-    describe("Events", function () {
-      it("Should emit an event on withdrawals", async function () {
-        const { lock, unlockTime, lockedAmount } = await loadFixture(
-          deployOneYearLockFixture
-        );
-
-        await time.increaseTo(unlockTime);
-
-        await expect(lock.withdraw())
-          .to.emit(lock, "Withdrawal")
-          .withArgs(lockedAmount, anyValue); // We accept any value as `when` arg
-      });
-    });
-
-    describe("Transfers", function () {
-      it("Should transfer the funds to the owner", async function () {
-        const { lock, unlockTime, lockedAmount, owner } = await loadFixture(
-          deployOneYearLockFixture
-        );
-
-        await time.increaseTo(unlockTime);
-
-        await expect(lock.withdraw()).to.changeEtherBalances(
-          [owner, lock],
-          [lockedAmount, -lockedAmount]
-        );
-      });
-    });
-  });*/
 });
