@@ -18,6 +18,14 @@ module.exports = {
       chainId: 1337, // @dev need for third web lib compatibility
       networkId: 1337,
     },
+    gnosis: {
+      url: "https://rpc.eu-central-2.gateway.fm/v4/gnosis/non-archival/mainnet",
+      accounts: [process.env.GOERLI_PRIVATE_KEY],
+    },
+    optimism: {
+      url: "https://rpc.eu-north-1.gateway.fm/v4/optimism/non-archival/mainnet",
+      accounts: [process.env.PRIVATE_KEY],
+    },
   },
   etherscan: {
     apiKey: process.env.ETHERSCAN_KEY,

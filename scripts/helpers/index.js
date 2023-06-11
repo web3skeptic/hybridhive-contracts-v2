@@ -16,25 +16,25 @@ const setupInitState = async (mainAccount, accounts) => {
   );
 
   const HybridHiveCore = await HybridHiveCoreFactory.deploy();
-  await HybridHiveCore.deployed();
+  await HybridHiveCore.deployTransaction.wait();
   console.log(
     `Core hybridhive contract is deployed to: ${HybridHiveCore.address}`
   );
 
   const AggregatorOperator = await AggregatorOperatorFactory.deploy();
-  await AggregatorOperator.deployed();
+  await AggregatorOperator.deployTransaction.wait();
 
   let tx = await AggregatorOperator.setCoreAddress(HybridHiveCore.address);
-  tx.wait();
+  await tx.wait();
   console.log(
     `Aggregator operator hybridhive contract is deployed to: ${AggregatorOperator.address}`
   );
 
   const TokenOperator = await TokenOperatorFactory.deploy();
-  await TokenOperator.deployed();
+  await TokenOperator.deployTransaction.wait();
 
   tx = await TokenOperator.setCoreAddress(HybridHiveCore.address);
-  tx.wait();
+  await tx.wait();
 
   console.log(
     `Token operator hybridhive contract is deployed to: ${TokenOperator.address}`
@@ -43,10 +43,10 @@ const setupInitState = async (mainAccount, accounts) => {
   //@todo move such functions to helpers folder
   const createNewToken = async (tokenName, tokenSymbol, recipients) => {
     const newToken = await TokenMockFactory.deploy(tokenName, tokenSymbol, 0);
-    await newToken.deployed();
+    await newToken.deployTransaction.wait();
     for (recipient of recipients) {
       tx = await newToken.mint(recipient.address, recipient.amount);
-      tx.wait();
+      await tx.wait();
     }
     return newToken;
   };
@@ -79,7 +79,7 @@ const setupInitState = async (mainAccount, accounts) => {
           )
         : subEntities.map((entity) => entity.id);
 
-    const newAggregator = await HybridHiveCore.createAggregator(
+    tx = await HybridHiveCore.createAggregator(
       aggregatorName, // _aggregatorName
       aggregatorSymbol, // _aggregatorSymbol
       "", // _aggregatorURI
@@ -89,7 +89,8 @@ const setupInitState = async (mainAccount, accounts) => {
       subEntitiesIds, // _aggregatedEntities
       subEntitiesWeigths // _aggregatedEntitiesWeights
     );
-    newAggregator.wait();
+    await tx.wait();
+    console.log("step 1");
     if (subEntitiesType == 1) {
       for (subEntity of subEntities) {
         const tokenAddress = tokensList[subEntity.id - 1].address;
@@ -99,17 +100,23 @@ const setupInitState = async (mainAccount, accounts) => {
           TokenOperator.address,
           aggregatorId
         );
-        tx.wait();
+        await tx.wait();
+
+        console.log("step 2");
 
         tx = await tokensList[subEntity.id - 1].transferOwnership(
           HybridHiveCore.address
         );
-        tx.wait();
+        await tx.wait();
+
+        console.log("step 3", tokenAddress, aggregatorId);
         tx = await TokenOperator.approveTokenConnection(
           tokenAddress,
           aggregatorId
         );
-        tx.wait();
+        await tx.wait();
+
+        console.log("step 4");
         // update aggregator by connecting sub entities
       }
     } else if (subEntitiesType == 2) {
@@ -120,22 +127,23 @@ const setupInitState = async (mainAccount, accounts) => {
           "",
           AggregatorOperator.address
         );
-        tx.wait();
+        await tx.wait();
+
+        console.log("step 5");
       }
     }
-
-    return newAggregator;
   };
 
   let aggregatorsCount = 0;
   for (aggregatorConfig of aggregatorsConfig()) {
-    const newAggregator = await createNewAggregator(
+    await createNewAggregator(
       aggregatorConfig.name,
       aggregatorConfig.symbol,
       aggregatorConfig.subEntitiesType,
       aggregatorConfig.subEntities,
       ++aggregatorsCount
     );
+    console.log(`Aggregator ${aggregatorsCount} is deployed`);
   }
   console.log("All test aggregators are created");
   console.log("Demo setup is finshed");
