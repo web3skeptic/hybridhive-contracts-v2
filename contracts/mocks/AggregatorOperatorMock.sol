@@ -13,28 +13,35 @@ contract AggregatorOperatorMock is Ownable {
         hybridHiveCore = HybridHiveCore(_hybridHiveCore);
     }
 
-    function updateParentAggregator(
-        uint256 _aggregatorId,
-        uint256 _parentAggregatorId
+    function addSubEntity(
+        uint256 _parentAggregatorId,
+        uint256 _entityId,
+        uint256 _weight
     ) public onlyOwner {
-        hybridHiveCore.updateParentAggregator(
-            IHybridHiveCore.EntityType.AGGREGATOR,
-            _aggregatorId,
-            _parentAggregatorId
-        );
+        hybridHiveCore.addSubEntity(_parentAggregatorId, _entityId, _weight);
     }
 
     function addAggregatorDetails(
+        uint256 _parentAggregatorId,
         uint256 _aggregatorId,
         string memory _aggregatorURI,
-        address _aggregatorOperator,
-        uint256 _parentAggregatorId
+        address _aggregatorOperator
     ) public onlyOwner {
         hybridHiveCore.addAggregatorDetails(
+            _parentAggregatorId,
             _aggregatorId,
             _aggregatorURI,
-            _aggregatorOperator,
-            _parentAggregatorId
+            _aggregatorOperator
+        );
+    }
+
+    function deleteAggregatorConnection(
+        uint256 _parentAggregatorId,
+        uint256 _entityId
+    ) public onlyOwner {
+        hybridHiveCore.deleteAggregatorConnection(
+            _parentAggregatorId,
+            _entityId
         );
     }
 }

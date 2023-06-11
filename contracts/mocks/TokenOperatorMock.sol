@@ -31,17 +31,6 @@ contract TokenOperatorMock is Ownable {
         hybridHiveCore.burnToken(_tokenId, _account, _amount);
     }
 
-    function updateParentAggregator(
-        uint256 _tokenId,
-        uint256 _parentAggregatorId
-    ) public onlyOwner {
-        hybridHiveCore.updateParentAggregator(
-            IHybridHiveCore.EntityType.TOKEN,
-            _tokenId,
-            _parentAggregatorId
-        );
-    }
-
     function approveTokenConnection(
         address _tokenAddress,
         uint256 _parentAggregatorId
@@ -49,6 +38,18 @@ contract TokenOperatorMock is Ownable {
         hybridHiveCore.approveTokenConnection(
             _tokenAddress,
             _parentAggregatorId
+        );
+    }
+
+    function deleteTokenConnection(
+        uint256 _parentAggregatorId,
+        address _tokenAddress,
+        address _newTokenOwner
+    ) public onlyOwner {
+        hybridHiveCore.deleteTokenConnection(
+            _parentAggregatorId,
+            _tokenAddress,
+            _newTokenOwner
         );
     }
 }

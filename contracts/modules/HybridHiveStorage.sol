@@ -9,15 +9,13 @@ import "../interfaces/IHybridHiveCore.sol";
 
 contract HybridHiveStorage {
     // CONSTANTS
-    uint256 public constant DENOMINATOR = 100000000; // 100 000 000
+    uint256 public constant DENOMINATOR = 100000000; // 100 000 000 // @audit unused
 
     // TOKENS // @todo remove underscore
     // Set of all token Ids
     EnumerableSet.UintSet internal _tokenSet;
     // Mapping from token ID to detailed tokens data
     mapping(uint256 => IHybridHiveCore.TokenData) internal _tokensData;
-    // Mapping from token ID to list of allowed holders
-    mapping(uint256 => EnumerableSet.AddressSet) internal _allowedHolders; // @todo probably remove this list
 
     // AGGREGATORS
     // Set of all aggregator Ids
@@ -31,7 +29,7 @@ contract HybridHiveStorage {
     mapping(uint256 => mapping(uint256 => uint256)) internal _weights;
 
     // GLOBAL TRANSFER
-    mapping(uint256 => IHybridHiveCore.GlobalTransfer) internal _globalTransfer;
+    mapping(uint256 => IHybridHiveCore.GlobalTransfer) internal _globalTransfer; // @audit needed for future implementations
     uint256 internal totalGlobalTransfers;
 
     // Used as the URI for all token types by relying on ID substitution, e.g. https://token-cdn-domain/{id}.json

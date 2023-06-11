@@ -22,11 +22,9 @@ contract HybridHiveCore is IHybridHiveCore, HybridHiveGeneralGetters {
         1. add events and event emiting
         2. create error codes
         3. avoid circles in the tree
-        4. switch to the absolute weights representations of the aggregator subentities
-        5. use the fixed point lib
-        6. recheck all access rights
-        7. add tokens decimals
-        8. try to make tokens erc20/erc1155 compatible
+        4. recheck all access rights
+        5. add tokens decimals
+        6. try to make tokens erc1155 compatible
     */
 
     //MODIFIER
@@ -61,7 +59,7 @@ contract HybridHiveCore is IHybridHiveCore, HybridHiveGeneralGetters {
         uint256 _amount
     ) public onlyOperator(IHybridHiveCore.EntityType.TOKEN, _tokenId) {
         address tokenAddress = address(uint160(_tokenId));
-        TokenMock(tokenAddress).mint(_account, _amount);
+        TokenMock(tokenAddress).burn(_account, _amount);
     }
 
     function createAggregator(
@@ -95,23 +93,25 @@ contract HybridHiveCore is IHybridHiveCore, HybridHiveGeneralGetters {
         newAggregator.parentAggregator = _parentAggregator;
         newAggregator.aggregatedEntityType = _aggregatedEntityType;
 
-        // add aggregator subentities to the list of entities
-        for (uint256 i = 0; i < _aggregatedEntities.length; i++) {
-            //@todo this should be done during the confirmation by original owner
-            //_subEntities[newAggregatorId].add(_aggregatedEntities[i]);
-        }
-
         for (uint256 i = 0; i < _aggregatedEntitiesWeights.length; i++) {
-            _weights[newAggregatorId][
-                _aggregatedEntities[i]
-            ] = _aggregatedEntitiesWeights[i];
-            //@todo this should be done during the confirmation by original owner
-            //newAggregator.totalWeight += _aggregatedEntitiesWeights[i];
+            _addSubEntities(
+                newAggregatorId,
+                _aggregatedEntities[i],
+                _aggregatedEntitiesWeights[i]
+            );
         }
 
         _aggregatorsData[newAggregatorId].totalWeight = 0;
 
         return newAggregatorId;
+    }
+
+    function _addSubEntities(
+        uint256 _parentAggregatorId,
+        uint256 _entityId,
+        uint256 _weight
+    ) internal {
+        _weights[_parentAggregatorId][_entityId] = _weight;
     }
 
     // GENERAL FUCNCTIONS
@@ -148,28 +148,55 @@ contract HybridHiveCore is IHybridHiveCore, HybridHiveGeneralGetters {
         require(address(this) == TokenMock(_tokenAddress).owner());
         uint256 tokenId = uint256(uint160(_tokenAddress));
 
-        require(_subEntities[_parentAggregatorId].add(tokenId));
-        // @todo validate that there is no such token address
         require(_tokenSet.add(tokenId));
+        require(_subEntities[_parentAggregatorId].add(tokenId));
+
+        _tokensData[tokenId].parentAggregator = _parentAggregatorId;
 
         _aggregatorsData[_parentAggregatorId].totalWeight += _weights[
             _parentAggregatorId
         ][tokenId];
     }
 
+    function deleteTokenConnection(
+        uint256 _parentAggregatorId,
+        address _tokenAddress,
+        address _newTokenOwner
+    )
+        public
+        onlyOperator(
+            IHybridHiveCore.EntityType.TOKEN,
+            uint256(uint160(_tokenAddress))
+        )
+    {
+        require(address(this) == TokenMock(_tokenAddress).owner());
+        uint256 tokenId = uint256(uint160(_tokenAddress));
+
+        require(_tokenSet.remove(tokenId));
+        require(_subEntities[_parentAggregatorId].remove(tokenId));
+
+        _tokensData[tokenId].parentAggregator = 0;
+        _weights[_parentAggregatorId][tokenId] = 0;
+        _aggregatorsData[_parentAggregatorId].totalWeight -= _weights[
+            _parentAggregatorId
+        ][tokenId];
+
+        TokenMock(_tokenAddress).transferOwnership(_newTokenOwner);
+    }
+
     // @todo recheck if it is sufficient to approve tokens connection
     function addAggregatorDetails(
+        uint256 _parentAggregatorId,
         uint256 _aggregatorId,
         string memory _aggregatorURI,
-        address _aggregatorOperator,
-        uint256 _parentAggregatorId
+        address _aggregatorOperator
     )
         public
         onlyOperator(IHybridHiveCore.EntityType.AGGREGATOR, _aggregatorId)
     {
         require(_aggregatorId != 0);
         require(_aggregatorIds.contains(_aggregatorId));
-        assert(_subEntities[_parentAggregatorId].add(_aggregatorId));
+        require(_subEntities[_parentAggregatorId].add(_aggregatorId));
         // @todo validate that there is no such token address
         // assert(!_tokenSet.contains(_tokenAddress));
 
@@ -183,6 +210,22 @@ contract HybridHiveCore is IHybridHiveCore, HybridHiveGeneralGetters {
         _aggregatorsData[_parentAggregatorId].totalWeight += _weights[
             _parentAggregatorId
         ][_aggregatorId];
+    }
+
+    function deleteAggregatorConnection(
+        uint256 _parentAggregatorId,
+        uint256 _entityId
+    ) public onlyOperator(IHybridHiveCore.EntityType.AGGREGATOR, _entityId) {
+        require(_aggregatorIds.remove(_entityId));
+        require(_subEntities[_parentAggregatorId].remove(_entityId));
+
+        // @todo remove weight also, recheck if needed
+        _aggregatorsData[_entityId].parentAggregator = 0;
+        _weights[_parentAggregatorId][_entityId] = 0;
+
+        _aggregatorsData[_parentAggregatorId].totalWeight -= _weights[
+            _parentAggregatorId
+        ][_entityId];
     }
 
     /**
@@ -211,45 +254,37 @@ contract HybridHiveCore is IHybridHiveCore, HybridHiveGeneralGetters {
 
     // @todo restrict control to onlyOperatorValidator
     // @todo rework for new token standart
-    function updateParentAggregator(
-        IHybridHiveCore.EntityType _entityType,
-        uint256 _entityId,
-        uint256 _parentAggregatorId
-    ) public onlyOperator(_entityType, _entityId) {
-        // @todo validate if it matches the type
 
-        require(
-            HybridHiveStorage
-                ._aggregatorsData[_parentAggregatorId]
-                .aggregatedEntityType == _entityType
-        );
-
-        if (_entityType == IHybridHiveCore.EntityType.AGGREGATOR) {
-            HybridHiveStorage
-                ._aggregatorsData[_entityId]
-                .parentAggregator = _parentAggregatorId;
-        } else if (_entityType == IHybridHiveCore.EntityType.TOKEN) {
-            HybridHiveStorage
-                ._tokensData[_entityId]
-                .parentAggregator = _parentAggregatorId;
-        }
-    }
-
-    // @audit rework, maybe remove completly
+    // @audit rework, in terms of security
     // @audit check if token is connected
     function addSubEntity(
-        IHybridHiveCore.EntityType _entityType,
-        uint256 _aggregatorId,
-        uint256 _subEntity, // if it is ERC20 token it should be uint256(TOKEN_ADDRESS)
+        uint256 _parentAggregatorId,
+        uint256 _entityId, // if it is ERC20 token it should be uint256(TOKEN_ADDRESS)
         uint256 _weight
-    ) public onlyOperator(_entityType, _aggregatorId) {
-        require(_subEntities[_aggregatorId].add(_subEntity));
-        IHybridHiveCore.AggregatorData storage aggregator = _aggregatorsData[
-            _aggregatorId
-        ];
+    )
+        public
+        onlyOperator(IHybridHiveCore.EntityType.AGGREGATOR, _parentAggregatorId)
+    {
+        require(_aggregatorIds.contains(_parentAggregatorId));
+        require(!_subEntities[_parentAggregatorId].contains(_entityId));
+        require(_weights[_parentAggregatorId][_entityId] == 0);
+        // @todo verify that there is not such sub entity in whole hive
 
-        _weights[_aggregatorId][_subEntity] = _weight; // weight of the new entity should be zero
-        aggregator.totalWeight += _weight;
+        _addSubEntities(_parentAggregatorId, _entityId, _weight);
+    }
+
+    function removeSubEntity(
+        uint256 _parentAggregatorId,
+        uint256 _entityId // if it is ERC20 token it should be uint256(TOKEN_ADDRESS)
+    )
+        public
+        onlyOperator(IHybridHiveCore.EntityType.AGGREGATOR, _parentAggregatorId)
+    {
+        require(_aggregatorIds.contains(_parentAggregatorId));
+        require(_subEntities[_parentAggregatorId].remove(_entityId));
+
+        _weights[_parentAggregatorId][_entityId] = 0;
+        // @todo verify that there is not such sub entity in whole hive
     }
 
     // GLOBAL TRANSFER
@@ -278,7 +313,6 @@ contract HybridHiveCore is IHybridHiveCore, HybridHiveGeneralGetters {
         // @todo validate if it is same as root of `_tokenToId`
 
         require(_sender == msg.sender);
-        require(isAllowedTokenHolder(_tokenToId, _recipient));
 
         uint256 rootAggregator = getRootAggregator(
             _tokensData[_tokenFromId].parentAggregator
@@ -290,13 +324,6 @@ contract HybridHiveCore is IHybridHiveCore, HybridHiveGeneralGetters {
         // check that both tokens are part of the same network
         require(rootAggregator == alternativeRootAggregator);
 
-        UD60x18 transferGlobalShare = getGlobalValueShare(
-            rootAggregator,
-            IHybridHiveCore.EntityType.TOKEN,
-            _tokenFromId,
-            _amount
-        );
-
         // @todo optimize it
         uint256 entityId = _tokenFromId;
         uint256 parentEntity = _tokensData[entityId].parentAggregator;
@@ -307,7 +334,7 @@ contract HybridHiveCore is IHybridHiveCore, HybridHiveGeneralGetters {
         );
         uint256 operationalValue;
 
-        burnToken(_tokenFromId, _sender, _amount);
+        TokenMock(address(uint160(_tokenFromId))).burn(_sender, _amount);
         while (parentEntity != 0) {
             operationalValue = convert(
                 convert(_weights[parentEntity][entityId]).mul(operationalShare)
@@ -369,7 +396,10 @@ contract HybridHiveCore is IHybridHiveCore, HybridHiveGeneralGetters {
             );
         }
 
-        mintToken(_tokenToId, _recipient, operationalValue);
+        TokenMock(address(uint160(_tokenToId))).mint(
+            _recipient,
+            operationalValue
+        );
     }
 
     // INTERNAL FUNCTIONS
@@ -411,7 +441,6 @@ contract HybridHiveCore is IHybridHiveCore, HybridHiveGeneralGetters {
         return convert(childAbsoluteShareValue).div(convert(parentTotalSupply));
     }
 
-    //75 66
     // @todo unfinalized
     function getGlobalValueShare(
         uint256 _networkRootAggregator,
